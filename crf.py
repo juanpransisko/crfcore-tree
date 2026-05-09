@@ -14,12 +14,21 @@ This module implements:
     - Forward-backward algorithm for computing Z(x) and marginals
     - Viterbi algorithm for finding the optimal label sequence
     - Stochastic gradient descent (SGD) for parameter estimation
+    - Averaged Perceptron for faster convergence on large label sets
+
+The forward-backward and Viterbi passes use vectorized numpy operations
+to replace the inner label-loop with matrix broadcasts, reducing wall
+time from O(T * L * L) Python iterations to O(T) numpy calls each
+operating on (L, L) arrays.
 
 All computations are done in log space to avoid numerical underflow,
 following standard practice for sequence models with large label sets
 such as the 218-tag MGNN tagset used in Filipino POS tagging.
 
 References:
+    Collins, M. (2002). Discriminative Training Methods for Hidden
+        Markov Models: Theory and Experiments with Perceptron
+        Algorithms. EMNLP.
     Lafferty, J., McCallum, A., & Pereira, F. (2001).
         Conditional Random Fields: Probabilistic Models for Segmenting
         and Labeling Sequence Data. ICML.
@@ -46,6 +55,10 @@ class CRF:
     The model learns weights for arbitrary feature functions that
     examine the current observation, surrounding context, and the
     transition between consecutive labels.
+
+    Supports two training algorithms:
+        - SGD on negative log-likelihood (train)
+        - Structured Averaged Perceptron (train_ap)
     """
 
     def __init__(self, labels, feature_fn):
@@ -80,6 +93,11 @@ class CRF:
                 feats = self.feature_fn(x, t, y_prev, y[t])
                 for name in feats:
                     self._get_feat_id(name)
+                if t > 0:
+                    for y_id in range(self.n_labels):
+                        feats = self.feature_fn(x, t, y[t - 1], self.labels[y_id])
+                        for name in feats:
+                            self._get_feat_id(name)
         n = len(self._feat_index)
         self._w = np.zeros(n, dtype=np.float64)
         for name, val in self.weights.items():
@@ -103,6 +121,18 @@ class CRF:
         for fid, val in sparse_feats:
             s += self._w[fid] * val
         return s
+
+    def _sequence_feature_vector(self, x, y_ids):
+        """Sum feature vectors over an entire label sequence."""
+        n = len(self._w)
+        fv = np.zeros(n, dtype=np.float64)
+        T = len(x)
+        for t in range(T):
+            yp = y_ids[t - 1] if t > 0 else None
+            feats = self._feat_vector(x, t, yp, y_ids[t])
+            for fid, val in feats:
+                fv[fid] += val
+        return fv
 
     def _potential_table(self, x):
         """
@@ -133,17 +163,17 @@ class CRF:
         """
         Forward algorithm (Rabiner, 1989) in log space.
 
-        Computes alpha[t, y] = log sum over all partial label sequences
-        ending with label y at position t. Used to obtain Z(x).
+        Vectorized: the inner loop over labels is replaced by a
+        numpy broadcast on (L,) + (L, L) arrays per time step.
         """
         T, L = phi.shape[0], self.n_labels
         alpha = np.full((T, L), NEG_INF, dtype=np.float64)
-
         alpha[0] = phi[0, 0, :]
 
         for t in range(1, T):
-            for y in range(L):
-                alpha[t, y] = logsumexp(alpha[t - 1] + phi[t, :, y])
+            # alpha[t-1] is (L,), phi[t] is (L, L)
+            # broadcast: (L, 1) + (L, L) -> (L, L), then logsumexp over axis 0
+            alpha[t] = logsumexp(alpha[t - 1][:, np.newaxis] + phi[t], axis=0)
 
         return alpha
 
@@ -151,17 +181,16 @@ class CRF:
         """
         Backward algorithm in log space.
 
-        Computes beta[t, y] = log sum over all partial label sequences
-        starting after position t, given label y at position t.
+        Vectorized: (L, L) + (1, L) broadcast per time step.
         """
         T, L = phi.shape[0], self.n_labels
         beta = np.full((T, L), NEG_INF, dtype=np.float64)
-
         beta[T - 1] = 0.0
 
         for t in range(T - 2, -1, -1):
-            for yp in range(L):
-                beta[t, yp] = logsumexp(phi[t + 1, yp, :] + beta[t + 1])
+            # phi[t+1] is (L, L), beta[t+1] is (L,)
+            # broadcast: (L, L) + (1, L) -> (L, L), then logsumexp over axis 1
+            beta[t] = logsumexp(phi[t + 1] + beta[t + 1][np.newaxis, :], axis=1)
 
         return beta
 
@@ -173,8 +202,8 @@ class CRF:
         """
         Edge marginals P(y_{t-1}, y_t | x) via forward-backward.
 
-        Returns mu of shape (T, L, L) where mu[t, y', y] gives the
-        posterior probability of the label pair (y', y) at position t.
+        Vectorized: each time step computes an (L, L) matrix of
+        marginal probabilities in a single numpy expression.
         """
         T, L = phi.shape[0], self.n_labels
         mu = np.zeros((T, L, L), dtype=np.float64)
@@ -183,11 +212,10 @@ class CRF:
             mu[0, :, y] = np.exp(alpha[0, y] + beta[0, y] - log_z)
 
         for t in range(1, T):
-            for yp in range(L):
-                for y in range(L):
-                    mu[t, yp, y] = np.exp(
-                        alpha[t - 1, yp] + phi[t, yp, y] + beta[t, y] - log_z
-                    )
+            # (L, 1) + (L, L) + (1, L) - scalar -> (L, L)
+            mu[t] = np.exp(
+                alpha[t - 1][:, np.newaxis] + phi[t] + beta[t][np.newaxis, :] - log_z
+            )
 
         return mu
 
@@ -207,14 +235,12 @@ class CRF:
 
         y_ids = [self.label_to_id[label] for label in y]
 
-        # Observed feature counts
         for t in range(T):
             yp = y_ids[t - 1] if t > 0 else None
             feats = self._feat_vector(x, t, yp, y_ids[t])
             for fid, val in feats:
                 grad[fid] += val
 
-        # Expected feature counts under the model
         for t in range(T):
             if t == 0:
                 for y_id in range(L):
@@ -282,12 +308,67 @@ class CRF:
 
         self._sync_weights_to_dict()
 
+    def train_ap(self, X, Y, max_iter=30, verbose=True):
+        """
+        Estimate parameters using the Structured Averaged Perceptron.
+
+        The perceptron updates are simpler than SGD: for each training
+        sequence, decode with Viterbi; if the prediction differs from
+        the gold standard, add the gold feature vector and subtract
+        the predicted feature vector. Weights are averaged over all
+        updates to improve generalization (Collins, 2002).
+
+        This avoids forward-backward computation entirely during
+        training, making it significantly faster than SGD for large
+        label sets like the 218-tag MGNN tagset.
+        """
+        self._build_features(X, Y)
+        n_feats = len(self._feat_index)
+        if verbose:
+            print("Features: %d, Labels: %d, Sequences: %d"
+                  % (n_feats, self.n_labels, len(X)))
+
+        w_sum = np.zeros_like(self._w)
+        n_updates = 0
+
+        for epoch in range(max_iter):
+            indices = np.random.permutation(len(X))
+            n_correct = 0
+            n_total = 0
+
+            for idx in indices:
+                x, y = X[idx], Y[idx]
+                y_ids = [self.label_to_id[label] for label in y]
+
+                pred = self.predict(x)
+                pred_ids = [self.label_to_id[label] for label in pred]
+
+                if pred != y:
+                    gold_fv = self._sequence_feature_vector(x, y_ids)
+                    pred_fv = self._sequence_feature_vector(x, pred_ids)
+                    self._w += gold_fv - pred_fv
+
+                w_sum += self._w
+                n_updates += 1
+
+                for p, g in zip(pred, y):
+                    if p == g:
+                        n_correct += 1
+                    n_total += 1
+
+            acc = n_correct / n_total if n_total > 0 else 0.0
+            if verbose:
+                print("Epoch %d/%d  acc=%.4f" % (epoch + 1, max_iter, acc))
+
+        self._w = w_sum / n_updates
+        self._sync_weights_to_dict()
+
     def predict(self, x):
         """
         Find the most probable label sequence using Viterbi decoding.
 
-        Uses dynamic programming over the potential table to find
-        y* = argmax_y P(y|x) in O(T * L^2) time.
+        Vectorized: the inner loop over labels is replaced by numpy
+        argmax and broadcasting on (L,) + (L, L) arrays per step.
         """
         phi = self._potential_table(x)
         T, L = len(x), self.n_labels
@@ -298,10 +379,10 @@ class CRF:
         delta[0] = phi[0, 0, :]
 
         for t in range(1, T):
-            for y in range(L):
-                scores = delta[t - 1] + phi[t, :, y]
-                psi[t, y] = np.argmax(scores)
-                delta[t, y] = scores[psi[t, y]]
+            # (L, 1) + (L, L) -> (L, L), then max over axis 0
+            scores = delta[t - 1][:, np.newaxis] + phi[t]
+            psi[t] = np.argmax(scores, axis=0)
+            delta[t] = scores[psi[t], np.arange(L)]
 
         path = [0] * T
         path[T - 1] = int(np.argmax(delta[T - 1]))

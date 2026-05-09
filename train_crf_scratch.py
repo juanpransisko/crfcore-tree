@@ -1,25 +1,30 @@
 """
 Training script for the from-scratch CRFPOST model.
 
-Trains a linear-chain CRF on the OHTree Filipino treebank corpus
-using stochastic gradient descent (SGD) with L2 regularization,
-as described in Sutton and McCallum (2012). The CRF implementation
-in crf.py handles forward-backward inference and gradient
-computation; this script manages the data pipeline and evaluation.
+Trains a linear-chain CRF on the OHTree Filipino treebank corpus.
+Supports two training algorithms selectable via --algorithm:
 
-Parameter estimation follows the formulation by Lafferty, McCallum,
-and Pereira (2001), where the gradient of the log-likelihood is the
-difference between observed and expected feature counts under the
-model distribution.
+    sgd  — Stochastic gradient descent with L2 regularization,
+           using forward-backward for gradient computation
+           (Lafferty et al., 2001; Sutton & McCallum, 2012).
+
+    ap   — Structured Averaged Perceptron, which uses only Viterbi
+           decoding during training and averages weights across all
+           updates for better generalization (Collins, 2002).
 
 After training, the script evaluates on a held-out test set and
 writes predictions in CoNLL format, a side-by-side comparison of
 gold vs. predicted tags, and a summary of accuracy metrics.
 
 Usage:
-    python train_crf_scratch.py
+    python train_crf_scratch.py              # default: averaged perceptron
+    python train_crf_scratch.py --algo ap    # averaged perceptron
+    python train_crf_scratch.py --algo sgd   # stochastic gradient descent
 
 References:
+    Collins, M. (2002). Discriminative Training Methods for Hidden
+        Markov Models: Theory and Experiments with Perceptron
+        Algorithms. EMNLP.
     Lafferty, J., McCallum, A., & Pereira, F. (2001).
         Conditional Random Fields: Probabilistic Models for Segmenting
         and Labeling Sequence Data. ICML.
@@ -29,6 +34,7 @@ References:
 
 import os
 import time
+import argparse
 
 from crf import CRF, pos_features
 
@@ -48,6 +54,13 @@ def load_data(words_file, tags_file):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Train from-scratch CRF')
+    parser.add_argument('--algo', choices=['ap', 'sgd'], default='ap',
+                        help='Training algorithm (default: ap)')
+    parser.add_argument('--iter', type=int, default=30,
+                        help='Training iterations (default: 30)')
+    args = parser.parse_args()
+
     root = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(root, 'models', 'crf_scratch_model.json')
     results_dir = os.path.join(root, 'results')
@@ -72,10 +85,13 @@ def main():
 
     crf = CRF(labels=labels, feature_fn=pos_features)
 
-    print('\nTraining...')
+    print('\nTraining with %s...' % args.algo.upper())
     start = time.time()
-    crf.train(X_train, Y_train, max_iter=30, learning_rate=0.01,
-              l2_reg=0.1, verbose=True)
+    if args.algo == 'ap':
+        crf.train_ap(X_train, Y_train, max_iter=args.iter, verbose=True)
+    else:
+        crf.train(X_train, Y_train, max_iter=args.iter, learning_rate=0.01,
+                  l2_reg=0.1, verbose=True)
     elapsed = time.time() - start
     print('Training completed in %.1fs' % elapsed)
 
@@ -117,12 +133,14 @@ def main():
             f.write('\n')
     print('Comparison saved to: %s' % compare_path)
 
+    algo_name = 'Averaged Perceptron' if args.algo == 'ap' else 'SGD'
     metrics_path = os.path.join(results_dir, 'scratch_metrics.txt')
     with open(metrics_path, 'w') as f:
-        f.write('Algorithm: SGD (from-scratch CRF)\n')
+        f.write('Algorithm: %s (from-scratch CRF)\n' % algo_name)
         f.write('Training sentences: %d\n' % len(X_train))
         f.write('Test sentences: %d\n' % len(X_test))
         f.write('Training time: %.1fs\n' % elapsed)
+        f.write('Iterations: %d\n' % args.iter)
         f.write('Labels: %d\n' % len(labels))
         f.write('Correct: %d\n' % correct)
         f.write('Total: %d\n' % total)
