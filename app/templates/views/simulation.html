@@ -1,0 +1,763 @@
+{% extends "./layout/base.html" %}
+
+{% block title %} | Simulation {% endblock title %}
+
+{% block content %}
+
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/treant.css') }}">
+
+	<div class="top-title-wrapper">
+		<div class="container">
+			<div class="row">
+				<div class="col-md-12 text-center">
+					<h1 class="page-title">TREECO SIMULATION</h1>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="page-content">
+		<div class="container">
+			<div class="row panel-inside">
+				
+				{% raw %}
+				<!-- Control Panel -->
+				<div id="app-input" class="col-xs-12 col-md-3 col-sm-5 pull-right panel-inside-div">
+
+					<div id="ctrl-panel">
+						<!-- <h3 class="text-center">CONFIGURATION</h3> -->
+
+						<ul class="nav nav-tabs nav-justified config-ul">
+							<li class="active config-tab"><a data-toggle="tab" href="#crfpost-panel">CRFPOST CONFIGURATION</a></li>
+							<!-- <li class="config-tab"><a data-toggle="tab" href="#parser-panel">PARSER</a></li> -->
+						</ul>
+
+						<div class="tab-content">
+							<div id="crfpost-panel" class="tab-pane fade in active">
+								<!-- Delimiter -->
+								<div id="pos-div1">
+									<h3 class="config-h3">POST Delimiter</h3>
+									<div class="config-box">
+										<span>START</span> <input type="text" name="post-del-start" size="1" maxlength="1" class="text-center config-box-del" v-model="pos_start_del" />
+										<input type="text" name="post-del-start" size="1" maxlength="1" class="text-center config-box-del" v-model="pos_end_del" /> <span>END</span>
+									</div>
+								</div>
+
+								<br/>
+
+								<!-- Tagger Model -->
+								<div id="pos-div2">
+									<h3 class="config-h3">Part-of-Speech Tagger</h3>
+									<div class="config-box">
+										<span>MODEL</span> <select name="tagger-model" class="config-box-select" v-model="pos_model">
+											<option v-for="model in models" v-bind:value="model.value">
+										    	{{ model.text }}
+										  	</option>
+										</select>
+									</div>
+								</div>
+
+								<br/>
+
+								<!-- POS Output File -->
+								<div id="pos-div3">
+									<h3 class="config-h3"> Tagging Output File 
+										<label class="switch pull-right">
+											<input type="checkbox" v-model="pos_switch" />
+											<span class="slider round"></span>
+										</label>
+									</h3>
+									<div class="config-box">
+										<input type="text" name="del-start" placeholder="Filename" class="config-outfile-name" v-model="pos_out_filename" :disabled="pos_switch == false" /> <b>.</b> 
+										<input type="text" name="del-start" placeholder="txt" class="config-outfile-ext" v-model="pos_out_extname" :disabled="pos_switch == false" />
+									</div>
+								</div>
+
+							</div>
+
+							<div id="parser-panel" class="tab-pane fade">
+
+								<!-- Delimiter -->
+								<div>
+									<h3 class="config-h3">PARSER Delimiter</h3>
+									<div class="config-box">
+										<span>START</span> <input type="text" name="pars-del-start" size="1" maxlength="1" class="text-center config-box-del" v-model="parser_start_del" />
+										<input type="text" name="pars-del-start" size="1" maxlength="1" class="text-center config-box-del" v-model="parser_end_del" /> <span>END</span>
+									</div>
+								</div>
+
+								<br/>
+
+								<!-- Parser Grammar -->
+								<div>
+									<h3 class="config-h3">Grammar</h3>
+									<div class="config-box">
+										<span>MODEL</span> <select name="grammar" class="config-box-select" v-model="parser_grammar" >
+											<option v-for="grammar in grammars" v-bind:value="grammar.value">
+										    	{{ grammar.text }}
+										  	</option>
+										</select>
+									</div>
+								</div>
+
+								<br/>
+
+								<!-- Parsing Output File -->
+								<div>
+									<h3 class="config-h3"> Parsing Output File 
+										<label class="switch pull-right">
+											<input type="checkbox" v-model="parser_switch" />
+											<span class="slider round"></span>
+										</label>
+									</h3>
+									<div class="config-box">
+										<input type="text" name="del-start" placeholder="Filename" class="config-outfile-name" v-model="parser_out_filename" :disabled="parser_switch == false" /> <b>.</b> 
+										<input type="text" name="del-start" placeholder="txt" class="config-outfile-ext" v-model="parser_out_extname" :disabled="parser_switch == false" />
+									</div>
+								</div>
+
+							</div>
+
+						</div>
+					</div>
+
+				</div>
+				{% endraw %}
+
+
+				<!-- Input Container -->
+				<div id="input-container" class="col-xs-12 col-sm-7 col-md-9 pull-left">
+
+					<h2 id="input-title">INPUT 
+						<span class="pull-right">
+							<small id="external-file-name"></small>
+							<label id="open-folder" for="external-file-picker" class="btn btn-default"><i class="fa fa-folder-open"></i></label>
+	  						<input id="external-file-picker" type="file" >
+						</span>
+					</h2>
+
+					<textarea id="input-field" name="input-field" placeholder="Your input here" spellcheck="false"></textarea>
+
+					<br/><br/> 
+
+					<div class="btn-constructor-wrapper">
+						<button id="btn-constructor" type="button" class="btn-treeco ripple btn-submit">Simulate</button>
+						<i class="fa fa-spinner fa-spin loading-spinner" id="status-spinner"></i>
+						<i class="fa fa-check done-marker" id="status-done"></i>
+						<i class="fa fa-error error-marker" id="status-error"></i>
+					</div>
+
+				</div>
+
+			</div>
+		</div>
+
+		<br/><br/>
+
+		<div class="container">
+			<div class="panel-inside">
+
+				<div class="container">
+					<div class="row">
+
+			    		<div id="tree-selector" class="col-xs-12 col-md-4 col-sm-5 pull-right" style="padding: 5% 3% 2% 6%;">
+			    			<div style="width: 100%; border-radius: 5px; padding: 30px 10px 40px 10px; background-color: #fff; border: 1px solid lightgray; box-shadow: 0 5px 20px lightgray;">
+			    				<h2 class="config-h3 text-center">TREEBANK</h2>
+								{% raw %}
+								<div id="save-tree" class="text-center">
+									<select v-model="treebank" style="margin: 20px 0; height: 30px; padding: 3px; width: 170px;">
+										<option v-for="tree in trees" v-bind:value="tree.value">
+									    	{{ tree.text }}
+									  	</option>
+									</select><br/>
+									<button type="button" class="save-result" style="width: 150px; font-family: Roboto Regular;" >SAVE RESULT</button>
+								</div>
+								{% endraw %}
+			    			</div>
+			    		</div>
+
+						<div class="output-wrapper col-xs-12 col-sm-7 col-md-8 pull-left output-wrapper1">
+							<h2 class="output-title">CRFPOST OUTPUT</h2>
+							<textarea id="crfpost-output" spellcheck="false" readonly></textarea>
+			    		</div>
+			    	</div>
+
+					<div class="row">
+						<div class="output-wrapper col-xs-12 col-sm-7 col-md-8 pull-left output-wrapper2">
+							<h2 class="output-title">PARSING OUTPUT</h2>
+							<textarea id="parsing-output" spellcheck="false" readonly></textarea>
+			    		</div>
+			    	</div>
+
+		    	</div>
+
+		    </div>
+		</div>
+
+    	<br/><br/><br/>
+
+    	<div class="container">
+			<div id="parse-tree-visual" class="panel-inside">
+    			<h2 class="output-title">PARSE TREE VISUALIZATION</h2>
+    			<div id="parse-tree-visual" style="border: 1px solid #aaa; padding: 20px; border-radius: 3px;">
+	    			<div class="chart" id="parse-tree" style="display: none;">
+					</div>
+    				<div id="visual-placeholder" style="height: 500px; padding-top: 210px; text-align: center;"><h2><small>P A R S E &nbsp;&nbsp;&nbsp; T R E E</small></h2><div>
+    			</div>
+		    </div>
+		</div>
+
+		<br/><br/><br/>
+
+	</div>
+
+{% endblock content %}
+
+{% block scripts %}
+
+	<script src="{{ url_for('static', filename='js/raphael.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/treant.js') }}"></script>
+
+	<script>
+
+		/* Tree Construction Control */
+
+        $(document).ready(function() {
+
+        	var app = new Vue({
+
+				el: '#app-input',
+				data: {
+					pos_start_del: "[",
+					pos_end_del: "]",
+					parser_start_del: "(",
+					parser_end_del: ")",
+					pos_model: "",
+					models: [],
+					parser_grammar: "",
+					grammars: [],
+					pos_out_filename: "",
+					pos_out_extname: "",
+					parser_out_filename: "",
+					parser_out_extname: "",
+					pos_switch: false,
+					parser_switch: false,
+					input_file: "",
+					input_switch: false,
+					crfpost_output: "",
+					parsing_output: ""
+				},
+				methods: {
+					manualInput: function(sentence) {
+
+						if(sentence) {
+							if(this.pos_model) {
+
+			                    $('.loading-spinner').css('display','inline-block');
+
+			                    if(this.pos_end_del == "") {
+			                    	if(this.pos_start_del != "") {
+
+			                    		var url_req = "";
+			                    		var output_file = ""
+
+			                    		if(this.pos_switch == true) {
+			                    			if((this.pos_out_filename == "") && (this.pos_out_extname == "")) {
+			                    				$('.loading-spinner').css('display','none');
+			                    				alert("POSTagging Output File:\n\nFilename and Extension name must be filled.");
+			                    				return;
+			                    			} else if((this.pos_out_filename == "") || (this.pos_out_extname == "")) {
+			                    				$('.loading-spinner').css('display','none');
+			                    				alert("POSTagging Output File:\n\nFilename and Extension name must be filled.");
+			                    				return;
+			                    			} else {
+			                    				// POST with Output File and No End Delimiter
+			                    				output_file = this.pos_out_filename + "." + this.pos_out_extname;
+			                    				url_req = '/treeco-manual-input/no-pos-end/with-file/'+ sentence + '/' + this.pos_model + '/' + this.pos_start_del + '/' + output_file;
+			                    				console.log(url_req);
+			                    			}
+			                    		} else {
+			                    			// POST without Output File and No End Delimiter
+			                    			url_req = '/treeco-manual-input/no-pos-end/without-file/'+ sentence + '/' + this.pos_model + '/' + this.pos_start_del;
+			                    		}
+
+					                    $.ajax({
+					                        url: url_req,
+					                        type: 'GET'
+					                    }).done(data => {
+					                    	console.log(data);
+					                    	//this.crfpost_output = data;
+					                    	$('#crfpost-output').val(data);
+					                    	//document.getElementById("crfpost_output").innerHTML = data;
+					                    	$('.loading-spinner').css('display','none');
+					                    	$('.done-marker').css('display','inline-block');
+										   	setTimeout(function() {
+											   $('.done-marker').css('display','none');
+											}, 3000);
+											this.parser();
+					                    }).fail(function() {
+					                        console.log("error");
+					                    	$('.loading-spinner').css('display','none');
+					                    	$('.error-marker').css('display','inline-block');
+					                    	setTimeout(function() {
+											   $('.error-marker').css('display','none');
+											}, 3000);
+					                    });
+					                } else {
+				                		alert('CRFPost requires atleast a start tag delimiter');
+				                		$('.loading-spinner').css('display','none');
+				                	}
+				                } else {
+				                	if(this.pos_start_del != "") {
+
+				                		var url_req = "";
+			                    		var output_file = ""
+
+				                		if(this.pos_switch == true) {
+			                    			if((this.pos_out_filename == "") && (this.pos_out_extname == "")) {
+			                    				$('.loading-spinner').css('display','none');
+			                    				alert("POSTagging Output File:\n\nFilename and Extension name must be filled.");
+			                    				return;
+			                    			} else if((this.pos_out_filename == "") || (this.pos_out_extname == "")) {
+			                    				$('.loading-spinner').css('display','none');
+			                    				alert("POSTagging Output File:\n\nFilename and Extension name must be filled.");
+			                    				return;
+			                    			} else {
+			                    				// POST with Output File and with End Delimiter
+			                    				output_file = this.pos_out_filename + "." + this.pos_out_extname;
+			                    				url_req = '/treeco-manual-input/with-pos-end/with-file/'+ sentence + '/' + this.pos_model + '/' + this.pos_start_del + '/' + this.pos_end_del + '/' + output_file;
+			                    				console.log(url_req);
+			                    			}
+			                    		} else {
+			                    			// POST without Output File and with End Delimiter
+			                    			url_req = '/treeco-manual-input/with-pos-end/without-file/'+ sentence + '/' + this.pos_model + '/' + this.pos_start_del + '/' + this.pos_end_del;
+			                    		}
+
+										$.ajax({
+					                        url: url_req,
+					                        type: 'GET'
+					                    }).done(data => {
+					                    	console.log(data);
+					                    	$('#crfpost-output').val(data);
+					                    	$('.loading-spinner').css('display','none');
+					                    	$('.done-marker').css('display','inline-block');
+										   	setTimeout(function() {
+											   $('.done-marker').css('display','none');
+											}, 3000);
+					                    	//this.crfpost_output = data;
+					                    	this.parser();
+					                    }).fail(function() {
+					                        console.log("error");
+					                    	$('.loading-spinner').css('display','none');
+					                    	$('.error-marker').css('display','inline-block');
+					                    	setTimeout(function() {
+											   $('.error-marker').css('display','none');
+											}, 3000);
+					                    });
+				                	} else {
+				                		alert('CRFPost requires start tag delimiter.');
+				                		$('.loading-spinner').css('display','none');
+				                	}
+			                   	}
+
+			                } else {
+			                	alert('Select CRFPost Model.');
+			                	$('.loading-spinner').css('display','none');
+			                } // if(this.pos_model)
+		            	} else {
+		                	alert('Enter an input.');
+		                	$('.loading-spinner').css('display','none');
+		            	}
+
+					},
+					parser() {
+						$.ajax({
+	                        url: '/parse_data/',
+	                        type: 'GET'
+	                    }).done(data => {
+	                    	console.log(data);
+	                    	$('#parsing-output').val(data);
+	                    	$('#parse-tree').css('display','block');
+							$('#visual-placeholder').css('display','none');
+	                    	parse_tree_visual(data);
+	                    }).fail(function() {
+	                        console.log("error");
+	                        $('#parsing-output').val("Input cannot be parse.");
+							$('#visual-placeholder').css('display','block');
+	                    	$('#parse-tree').css('display','none');
+							/*
+							$('#visual-placeholder').css('text-align','center');
+							$('#visual-placeholder').css('width','100%');*/
+	                    });
+					
+					},
+					fileInput: function() {
+	                    
+	                    $('.loading-spinner').css('display','inline-block');
+
+						$.ajax({
+	                        url: '/treeco-file-input/'+ this.input_file + '/' + this.pos_model + '/' + this.pos_start_del + '/' + this.pos_end_del,
+	                        type: 'GET'
+	                    }).done(data => {
+	                    	console.log(data);
+	                    	$('.loading-spinner').css('display','none');
+	                    	$('.done-marker').css('display','inline-block');
+						   	setTimeout(function() {
+							   $('.done-marker').css('display','none');
+							}, 3000);
+	                    }).fail(function() {
+	                        console.log("error");
+	                    	$('.loading-spinner').css('display','none');
+	                    	$('.error-marker').css('display','inline-block');
+	                    	setTimeout(function() {
+							   $('.error-marker').css('display','none');
+							}, 3000);
+	                    });
+
+					},
+					switchToFile: function() {
+						if(this.input_switch) {
+							$('#open-folder').css('display', 'none');
+							$('#input-field').css('display', 'none');
+							$('#input-from-file').css('display', 'inline-block');
+						} else {
+							$('#input-from-file').css('display', 'none');
+							$('#open-folder').css('display', 'inline-block');
+							$('#input-field').css('display', 'inline-block');
+						}
+					
+					},
+					readFile: function() {
+						var file = document.getElementById("input-from-file");
+				   	 	var filename = file.files[0].name;
+				   	 	document.getElementById("external-file-name").innerHTML = filename;
+						this.input_file = $("#input-from-file").val();
+						//this.input_file = (document.getElementById("input-from-file").value).split();
+						//this.input_file = filename;
+						console.log(this.input_file);
+					
+					},
+					initGrammarChoice: function() {
+						//console.log('Initialize Grammar Options');
+						$.ajax({
+	                        url: '/initgrammars/',
+	                        type: 'GET'
+	                    }).done(data => {
+	                    	//console.log(data);
+	                    	this.grammars = data;
+	                    }).fail(function() {
+	                        console.log("error");
+	                    });
+					},
+					initPOSModels: function() {
+						//console.log('Initialize POS Model Options');
+						$.ajax({
+	                        url: '/initmodels/',
+	                        type: 'GET'
+	                    }).done(data => {
+	                    	//console.log(data);
+	                    	this.pos_model = data;
+	                    	this.models = data;
+	                    }).fail(function() {
+	                        console.log("error");
+	                    });
+					}
+				}
+	        });
+
+			$("#btn-constructor").click(function() {
+				$('#crfpost-output').val("");
+				sentence = document.getElementById("input-field").value;
+				app.manualInput(sentence);
+			});
+
+			app.initGrammarChoice();
+			app.initPOSModels();
+
+		});
+
+		$(document).ready(function() {
+			var tree = new Vue({
+				el: '#save-tree',
+				data: {
+					trees: [],
+					treebank: ""
+				},
+				methods: {
+					initTreeBanks: function() {
+						//console.log('Initialize Grammar Options');
+						$.ajax({
+	                        url: '/inittreebanks/',
+	                        type: 'GET'
+	                    }).done(data => {
+	                    	//console.log(data);
+	                    	this.trees = data;
+	                    }).fail(function() {
+	                        console.log("error");
+	                    });
+					},
+					save_tree: function(parsed_data) {
+
+						//console.log(parsed_data);
+						
+						if((parsed_data == "") || (parsed_data == "Input cannot be parse.")) {
+
+							alert('Nothing was parsed to save.');
+
+						} else {
+
+							if(this.treebank) {
+
+								$.ajax({
+			                        url: '/save-tree/' + this.treebank + '/' + parsed_data,
+			                        type: 'GET'
+			                    }).done(data => {
+			                    	console.log("success");
+			                    	alert("A new tree was saved");
+			                    	//this.trees = data;
+			                    }).fail(function() {
+			                        console.log("error");
+			                    });
+
+		                	} else {
+
+		                 		alert("Select Treebank first.");
+
+		                 	}
+
+		                } // if(parsed_data == "")
+					}
+				}
+			});
+
+			$(".save-result").click(function() {
+				var parsed_data = document.getElementById("parsing-output").value;
+				console.log(parsed_data);
+				if(parsed_data == "Input cannot be parse.") {
+					alert('Nothing parsed to save.');
+				} else {
+					tree.save_tree(parsed_data);
+				}
+			});
+
+			tree.initTreeBanks();
+
+		});
+	    
+
+	</script>
+
+	<script>
+
+		/* Reading Data */
+
+		// Check for the File API support.
+		if (window.File && window.FileReader && window.FileList && window.Blob) {
+			// File APIs are supported
+		} else {
+			alert('The File APIs are not fully supported in this browser.');
+		}
+
+		function handleFileSelect(event) {
+
+			var file = event.target.files;
+			var fileDetails = '<strong>' + file[0].name + '</strong> (' + file[0].size + ' bytes)';
+			document.getElementById('external-file-name').innerHTML = fileDetails;
+			readContent();
+
+		} // function handleFileSelect(evt)
+	
+		function readContent() {
+
+			var files = document.getElementById('external-file-picker').files;
+
+			var file = files[0];
+			var start = parseInt(null) || 0;
+			var stop = parseInt(null) || file.size - 1;
+
+			var reader = new FileReader();
+
+			reader.onloadend = function(evt) {
+				if (evt.target.readyState == FileReader.DONE) { // DONE == 2
+					document.getElementById('input-field').textContent = evt.target.result;
+				}
+			};
+
+			var blob = file.slice(start, stop + 1);
+			reader.readAsBinaryString(blob);
+
+		} // function readContent()
+
+		document.getElementById('external-file-picker').addEventListener('change', handleFileSelect, false);
+
+	</script>
+
+	<script>
+		
+		/* Page Animations */
+
+		function startAnimation() {
+
+	        $('#input-title').css('opacity','1');
+	        $('#input-title').addClass('animated fadeIn');
+
+	        setTimeout(function () {
+				$('#input-field').css('opacity','1');
+				$('#input-field').addClass('animated fadeIn');
+			}, 500);
+
+	        setTimeout(function () {
+				$('#open-folder').addClass('animated bounceIn');
+			}, 800);
+
+			setTimeout(function () {
+				$('#btn-constructor').css('opacity','1');
+				$('#btn-constructor').addClass('animated bounceIn');
+			}, 1100);
+
+			setTimeout(function () {
+				$('#file-switch-wrapper').css('opacity','1');
+				$('#file-switch-wrapper').addClass('animated fadeIn');
+			}, 1400);
+
+			setTimeout(function () {
+				$('#ctrl-panel').css('opacity','1');
+				$('#ctrl-panel').addClass('animated bounceIn');
+			}, 1700);
+
+			setTimeout(function () {
+				$('.output-wrapper1').css('opacity','1');
+				$('.output-wrapper1').addClass('animated bounceIn');
+			}, 1000);
+
+			setTimeout(function () {
+				$('.output-wrapper2').css('opacity','1');
+				$('.output-wrapper2').addClass('animated bounceIn');
+			}, 1200);
+
+			setTimeout(function () {
+				$('#tree-selector').css('opacity','1');
+				$('#tree-selector').addClass('animated bounceIn');
+			}, 1500);
+
+			/*setTimeout(function () {
+				$('#parse-tree-visual').css('opacity','1');
+				$('#parse-tree-visual').addClass('animated bounceIn');
+			}, 1400);*/
+
+		}
+
+		startAnimation();
+
+	</script>
+
+	<script>
+
+		function parse_tree_visual(parse_tree) {
+
+			var tree_queue = [];
+
+			// Split string tree input
+			var tokens = []
+			temp_array = parse_tree.split(" ");
+
+			for (var i = 0; i < temp_array.length; i++) {
+				if (temp_array[i]) {
+					tokens.push(temp_array[i]);
+				}
+			}
+
+			console.log(tokens)
+
+			// Insert tree to queue
+			for(i = 0; i < tokens.length; i++){
+				tree_queue.push(tokens[i]);
+			}
+
+			// Traversing the tree
+			var root_token = "";
+			var curr_token = "";
+			var parent_stack = [];
+			var ptr_parent = 0;
+			var tree_structure = [];
+			var newVarId = 0;
+
+			for(i = 0; i < tokens.length; i++){
+				
+				curr_token = tree_queue.shift();
+
+				if(i == 1) {
+					root_token = curr_token;
+					tree_structure[newVarId] = new Object();
+					tree_structure[newVarId] = {text: { name: curr_token }};
+					parent_stack.push(tree_structure[newVarId]);
+					//console.log(tree_structure[newVarId]);
+					newVarId++;
+					continue;
+				}
+				
+				if(curr_token == '(') {
+
+					continue;
+
+				} else if(tokens[i-1] == '(') {
+
+					tree_structure[newVarId] = new Object();
+					tree_structure[newVarId] = {text: { name: curr_token }, parent: parent_stack[ptr_parent] };
+					parent_stack.push(tree_structure[newVarId]);
+					//console.log(tree_structure[newVarId]);
+					newVarId++;
+					ptr_parent = ptr_parent + 1;
+
+				} else if(curr_token == ')') {
+
+					if(ptr_parent == 0) {
+						//console.log('Current Parent: ' + root_token);
+					} else {
+						parent_stack.pop();
+						ptr_parent = ptr_parent - 1;
+						//console.log('Current Parent: ' + parent_stack[ptr_parent]);
+					} // if(ptr_parent == 0) 
+					
+				} else if((curr_token != '(') || (curr_token != ')')) {
+
+					tree_structure[newVarId] = new Object();
+					tree_structure[newVarId] = {text: { name: curr_token }, parent: parent_stack[ptr_parent] };
+					//console.log(tree_structure[newVarId]);
+					newVarId++;
+
+				} // if(curr_token == '(')
+
+			} // for(i = 0; i < tokens.length; i++)
+
+			//console.log(tree_structure);
+
+			var config = {
+				container: "#parse-tree",
+				connectors: {
+			        type: "straight"
+			    }
+			};
+
+			var root_node = {
+				text: {name: root_token}
+			};
+
+			var output_parse_tree = [
+				config
+			];
+
+			for(j = 0; j < tree_structure.length; j++){
+				output_parse_tree.push(tree_structure[j]);
+				//console.log('Child node: ' + tree_structure[j].text.name + ' (Parent: ' + tree_structure[j].parent + ')');
+			}
+
+			//console.log(output_parse_tree);
+
+			new Treant(output_parse_tree);
+
+		} // function parse_tree_visual(parse_tree)
+
+	</script>
+
+{% endblock scripts %}

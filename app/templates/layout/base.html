@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+
+		<title>TreeCo {% block title %}{% endblock title %}</title>
+
+		<meta charset="utf-8">
+		<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
+		<meta name="viewport" content="width=device-width">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		 
+		<link rel="apple-touch-icon" href="{{ url_for('static', filename='tree.png') }}" type="image/x-icon">
+		<link rel="icon" href="{{ url_for('static', filename='imgs/tree.png') }}" type="image/x-icon">
+
+    	<script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    	<script src="{{ url_for('static', filename='js/jquery.easing.min.js') }}"></script>
+    	<script src="{{ url_for('static', filename='js/vue.js') }}"></script>
+		
+    	<link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    	<link rel="stylesheet" href="{{ url_for('static', filename='css/animate.min.css') }}">
+    	<link rel="stylesheet" href="{{ url_for('static', filename='css/font-awesome.min.css') }}">
+    	<link rel="stylesheet" href="{{ url_for('static', filename='css/boxify-styles.css') }}">
+    	<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+	 	
+	</head>
+
+	<body>
+
+	    <header>
+			<div class="texture-overlay"></div>
+			<section class="hero" id="header-background" style="height: 80px; z-index: 2;">
+				<div class="container">
+					<div class="row nav-wrapper">
+						<div class="col-md-6 col-sm-6 col-xs-6 text-left" style="margin-top: -5px;">
+							<a href="/">
+								<img src="{{ url_for('static', filename='imgs/neural-tree.png') }}" alt="TreeCo Logo" width="50px" height="50px">
+								<span id="module-name" class="hidden animated" style="transition: all 0.3 ease; font-family: Roboto Regular; font-size: 23px; letter-spacing: 5px; color: #fff; position: relative; top: 5px; left: 10px;">TREECO</span>
+							</a>
+						</div>
+						<div class="col-md-6 col-sm-6 col-xs-6 text-right navicon" style="margin-top: 8px;">
+							<p>MENU</p>
+							<a id="trigger-overlay" class="nav_slide_button nav-toggle">
+								<span></span>
+							</a>
+						</div>
+					</div>
+				</div>
+			</section>
+		</header>
+
+		<div style="z-index: 1;">
+		{% block content %}
+		{% endblock content %}
+		</div>			
+
+		<footer class="footer" style="background-color: #ccc;">
+            <div class="container">
+                <div class="text-center">
+                	<span><i>Developed by:</i> <b>John Francis Olivo</b> &amp; <b>Prince Julius Hari</b></span><br/>
+                </div>
+            </div>
+        </footer>
+
+
+		<div class="overlay overlay-boxify" style="padding-top: 10%">
+			<nav>
+				<ul>
+					<li><a href="/"><i class="fa fa-home"></i>Home</a></li>
+					<li><a href="/simulation"><i class="fa fa-flash"></i>Simulation</a></li>
+					<!-- <li><a href="/documentation"><i class="fa fa-book"></i>Documentation</a></li> -->
+				</ul>
+			</nav>
+		</div>
+
+		<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    	<script src="{{ url_for('static', filename='js/boxify-scripts.js') }}"></script>
+    	<script src="{{ url_for('static', filename='js/jquery.visible.js') }}"></script>
+    	<script src="{{ url_for('static', filename='js/animation-utility.js') }}"></script>
+
+    	<script>
+    		
+    		window.onscroll = function() {scrollFunction()};
+
+			function scrollFunction() {
+			    
+			    if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
+			    	document.getElementById("header-background").style.backgroundColor = '#006341';
+			    	//document.getElementById("header-background").style.boxShadow = '0 2px 5px grey';
+			    } else {
+			    	document.getElementById("header-background").style.backgroundColor = 'transparent';
+			    	//document.getElementById("header-background").style.boxShadow = 'none';
+			    	/*document.getElementById("header-background").style.backgroundColor = 'rgba(51, 51, 51, 0.95)';*/
+			    }
+
+			    if (document.body.scrollTop > 150 || document.documentElement.scrollTop > 150) {
+			    	$("#module-name").removeClass("hidden");
+			    	$("#module-name").addClass("fadeInDown");
+			    } else {
+			    	$("#module-name").addClass("hidden");
+			    	$("#module-name").removeClass("fadeInDown");
+			    	/*document.getElementById("header-background").style.backgroundColor = 'rgba(51, 51, 51, 0.95)';*/
+			    }
+
+			}
+
+			/* Easing scroll */
+
+			$(function() {
+			  $('a.page-scroll').bind('click', function(event) {
+			    var $anchor = $(this);
+			    $('html, body').stop().animate({
+			      scrollTop: $($anchor.attr('href')).offset().top
+			    }, 1000, 'easeInOutExpo');
+			    event.preventDefault();
+			  });
+			});
+
+    	</script>
+
+		{% block scripts %}
+		{% endblock scripts %}
+
+	</body>
+
+</html>

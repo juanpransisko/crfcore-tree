@@ -1,0 +1,97 @@
+{% extends "./layout/base.html" %}
+
+{% block content %}
+
+	<div id="landing-top">
+		<img class="module-title animated zoomInRight" src="{{ url_for('static', filename='imgs/treeco-sublabel.png') }}" alt="TREECO">	
+		<img class="module-title animated zoomInLeft" src="{{ url_for('static', filename='imgs/treeco-label.png') }}" alt="A Python Library for Construction of Filipino Language Treebank">
+		<section id="ctab-wrapper" class="animated fadeIn">
+			<a href="#module-desc-wrapper" class="page-scroll"><span></span></a>
+		</section>
+    </div>
+
+    <div id="module-desc-wrapper">
+    	<div id="module-desc" class="row">
+
+    		<div class="col-sm-6 col-md-3 text-center desc-box">
+    			<img id="python-logo" src="{{ url_for('static', filename='imgs/python-solid.png') }}" class="animated" />
+    			<br/>
+    			<span>Module that runs with Python 3.0 or higher version</span>
+    		</div>
+
+    		<div class="col-sm-6 col-md-3 text-center desc-box">
+    			<img id="crf-logo" src="{{ url_for('static', filename='imgs/crf.png') }}" class="animated" />
+    			<br/>
+    			<span>Part-of-Speech Tagger utilized by Conditional Random Field Algorithm</span>
+    		</div>
+
+    		<div class="col-sm-6 col-md-3 text-center desc-box">
+    			<img id="tree-logo"  src="{{ url_for('static', filename='imgs/tree.png') }}" class="animated" />
+    			<br/>
+    			<span>Parser towards the construction of constituency treebank</span>
+    		</div>
+
+    		<div class="col-sm-6 col-md-3 text-center desc-box">
+    			<img id="phil-logo" src="{{ url_for('static', filename='imgs/philippines.png') }}" class="animated" />
+    			<br/>
+    			<span>Grammar and Part-of-Speech Tagset of Filipino Language</span>
+    		</div>
+
+    	</div>
+    </div>
+
+    <div id="res-wrapper">
+
+    	<div id="shadow"></div>
+
+    	<div class="text-center res-motivation">
+    		<h2 id="main-motivation"><strong>MAIN MOTIVATION</strong></h2>
+    		<h1 id="motivation">Development of Conditional Random Field based Part-of-Speech Tagger towards the Construction of Filipino Language Constituency Treebank</h1>
+    		<br/><br/>
+    		<div id="system-archi">
+    			<h3><small>INSERT SYSTEM ARCHITECTURE HERE</small></h3>
+    		</div>
+    	</div>
+
+    	<div class="text-center">
+    		<h3 id="see-docs">For you to use Treeco on your project, see the full documentation <a href="#">here</a></h3>
+    	</div>
+
+    </div>
+
+    <div id="launch-simulator-bg"></div>
+    <div id="launch-simulator" class="row text-center">
+    	<div class="col-md-offset-3 col-md-3 col-sm-12 launch-simulator-inside">
+    		<a href="/simulation">
+    			<button type="button">
+    				TRY IT NOW
+    			</button>
+    		</a>
+    	</div>
+    	<div class="col-md-3 text-center hidden-sm hidden-xs">
+    		<img class="neural-tree" src="{{ url_for('static', filename='imgs/neural-tree.png') }}" />	
+    	</div>
+    	
+    </div>
+
+{% endblock content %}
+
+{% block scripts %}
+
+	<script>
+
+		function simulatorHover() {
+
+			if( $('.launch-simulator-inside a button').is(':hover') ) {
+				$('#launch-simulator-bg').css('filter','hue-rotate(20deg)');
+			} else {
+				$('#launch-simulator-bg').css('filter','hue-rotate(0)');
+			}
+
+		}
+
+		window.setInterval(simulatorHover, 500);
+
+	</script>
+
+{% endblock scripts %}
